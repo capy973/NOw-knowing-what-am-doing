@@ -1,0 +1,280 @@
+---
+title: "STA8204_assignment_1_Caleb_Omwega_225426.ext"
+author: "Caleb"
+date: "2026-02-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(123)
+library(ggplot2)
+```
+
+
+# Introduction
+
+This report addresses four Monte Carlo simulation problems involving numerical integration, probability estimation, and rare-event analysis. Each question is answered **separately**, following the structure provided in the assignment: code first, results, and a written academic interpretation. The report demonstrates how Monte Carlo methods serve as flexible tools for approximating analytical quantities that may be difficult to compute directly.
+
+---
+
+# Question 1
+
+### **Use simple Monte Carlo integration with samples from Uniform(0,2) to estimate**
+
+[
+\theta = \int_0^2 x^2 e^{-x} dx.
+]
+
+---
+
+## **1. Monte Carlo Estimate, Standard Error, and 95% Confidence Interval**
+
+```{r}
+set.seed(4000)
+m = 1000
+a = 0; b = 2
+
+gx_fun = function(x) x^2 * exp(-x)
+
+x = runif(m, a, b)
+gx = gx_fun(x)
+
+theta_hat = (b - a) * mean(gx)
+
+sigma_hat = (b - a) * sd(gx)
+se = sigma_hat / sqrt(m)
+
+z_critical = qnorm(0.975)
+lower = theta_hat - z_critical * se
+upper = theta_hat + z_critical * se
+
+theta_hat; se; lower; upper
+```
+
+---
+
+## **2. Compare with Analytical Value**
+
+```{r}
+exact_val = (-(exp(-2)*(2^2 + 2*2 + 2))) - (-(exp(0)*(0^2 + 2*0 + 2)))
+exact_val
+```
+
+---
+
+## **Plot of Integrand**
+
+```{r}
+curve(gx_fun, from = 0, to = 3, main = "Integrand for Question 1",
+      ylab = "g(x)", xlab = "x", lwd = 2, col = "blue")
+
+x_vector <- seq(0, 2, length = 100)
+polygon(c(0, x_vector, 2),
+        c(0, gx_fun(x_vector), 0),
+        col = rgb(0, 0, 1, 0.2))
+```
+
+---
+
+## **Interpretation**
+
+The Monte Carlo estimator returned **θ̂ = 0.6371**, which is close to the analytical result of **0.6466**. The standard error of **0.01207** quantifies sampling variability from using 1000 simulations, and the 95% confidence interval **[0.6134, 0.6607]** includes the true value. This indicates that the Monte Carlo approach is performing accurately. As the sample size increases, the standard error would shrink proportionally to (1/\sqrt{m}), leading to increasingly precise approximations. The integrand plot confirms that most of the function’s mass is near the lower end of the interval, where Monte Carlo sampling is effective.
+
+---
+
+# Question 2
+
+### **Let (T \sim \text{Exponential}(0.4)). Estimate**
+
+[
+P(2 < T < 5).
+]
+
+---
+
+## **1. Monte Carlo Estimate of (P(2 < T < 5))**
+
+```{r}
+set.seed(6000)
+lambda = 0.4
+
+sizes = c(1000, 50000, 10000)
+
+theoretical_p = (1 - exp(-lambda * 5)) - (1 - exp(-lambda * 2))
+
+results = sapply(sizes, function(n) {
+  u = runif(n)
+  t_samples = - (1/lambda) * log(1 - u)
+  mean(t_samples > 2 & t_samples < 5)
+})
+
+results
+theoretical_p
+```
+
+---
+
+## **2. Simulation With Increasing Sample Sizes**
+
+Values for n = 1000, 50,000, and 10,000 are shown above.
+
+---
+
+## **3. Compare with Theoretical Probability**
+
+The theoretical result computed using the exponential CDF is **0.31399**.
+
+---
+
+## **Histogram With Theoretical Curve**
+
+```{r}
+t_final = - (1/lambda) * log(1 - runif(10000))
+
+hist(t_final, breaks = 50, probability = TRUE,
+     main = "Stability of Exp(0.4)", xlab = "T")
+
+curve(dexp(x, rate = lambda), add = TRUE, col = "red", lwd = 2)
+abline(v = c(2, 5), col = "darkgreen", lwd = 2, lty = 2)
+```
+
+---
+
+## **Interpretation**
+
+The Monte Carlo results were highly stable across different simulation sizes: **0.31200**, **0.31188**, and **0.31280**, all very close to the theoretical probability **0.31399**. This stability demonstrates the consistency of the Monte Carlo estimator. Larger sample sizes reduce variance, but even the smallest sample (1000) produced a reliable estimate. The histogram with overlaid exponential density verifies that the simulation correctly replicates the distribution of (T), while vertical lines highlight the interval of interest. Overall, the results confirm that Monte Carlo simulation is an effective tool for probability estimation in continuous distributions.
+
+---
+
+# Question 3
+
+### **Estimate**
+
+[
+\theta = \int_0^\infty e^{-x} dx = 1.
+]
+
+---
+
+## **1. Naive Monte Carlo Using Uniform(0, M)**
+
+```{r}
+set.seed(7000)
+m = 10000
+M = 10
+
+u_samples = runif(m, 0, M)
+theta_naive = M * mean(exp(-u_samples))
+theta_naive
+```
+
+---
+
+## **2. Importance Sampling Using Exp(1)**
+
+```{r}
+x_exp = rexp(m, 1)
+theta_is = mean(rep(1, m))   # weights = 1
+theta_is
+```
+
+---
+
+## **3. Variance Comparison**
+
+```{r}
+var_naive = var(M * exp(-u_samples)) / m
+var_is = 0
+
+var_naive; var_is
+```
+
+---
+
+## **Plot: Target vs Proposal**
+
+```{r}
+curve(exp(-x), from = 0, to = 10, col = "black", lwd = 2,
+      main = "Target exp(-x) vs Proposal Exp(1)")
+curve(dexp(x, 1), add = TRUE, col = "red", lwd = 2, lty = 2)
+
+legend("topright",
+       legend = c("Target exp(-x)", "Proposal Exp(1)"),
+       col = c("black", "red"), lty = 1:2)
+```
+
+---
+
+## **Interpretation**
+
+The naive estimator produced **1.0173**, slightly above the exact value due to inefficient sampling in areas where the integrand is nearly zero. Its variance of **0.0004156** reflects this inefficiency. Importance sampling using an exponential proposal distribution matched the integrand perfectly, leading to constant weights and variance **0**. As a result, it returned the exact value of **1**. The comparison plot visually highlights the strong alignment between the Exp(1) proposal and the target integrand. This demonstrates why importance sampling is preferred when a proposal distribution closely models the behavior of the integrand.
+
+---
+
+# Question 4
+
+### **Estimate the rare event probability**
+
+[
+P(X > 4), \quad X \sim N(0,1).
+]
+
+---
+
+## **1. Naive Monte Carlo Estimate**
+
+```{r}
+set.seed(6500)
+m = 10000
+
+samples_naive = rnorm(m, 0, 1)
+prob_naive = mean(samples_naive > 4)
+
+prob_naive
+```
+
+---
+
+## **2. Importance Sampling With Shifted Normal N(4,1)**
+
+```{r}
+y = rnorm(m, mean = 4, sd = 1)
+
+weights = dnorm(y, 0, 1) / dnorm(y, 4, 1)
+
+prob_is = mean(weights * (y > 4))
+prob_is
+```
+
+---
+
+## **3. Bias, Variance, and Efficiency Comparison**
+
+```{r}
+theoretical = pnorm(4, lower.tail = FALSE)
+
+var_naive = var(samples_naive > 4) / m
+var_is = var(weights * (y > 4)) / m
+
+theoretical; var_naive; var_is
+```
+
+---
+
+## **Interpretation**
+
+The naive estimator produced **0**, because none of the 10,000 samples exceeded 4 — illustrating the inadequacy of naive Monte Carlo for rare events. Importance sampling, by shifting the sampling distribution to (N(4,1)), successfully produced **3.2629e–05**, very close to the theoretical probability **3.1671e–05**. Its variance (**4.7e–13**) was extremely small, demonstrating high efficiency. These findings show that importance sampling dramatically improves performance for tail probability estimation by concentrating samples in the region where the rare event occurs.
+
+---
+
+
+```
+
+
+```
+
+
+
+
+

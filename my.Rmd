@@ -1,0 +1,156 @@
+---
+title: "test me"
+author: "Caleb"
+date: "2026-02-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+---
+
+# Computational Assignment: Monte Carlo Methods in R
+
+This document provides the R implementation and theoretical background for the assigned problems regarding Monte Carlo integration, probability estimation, and importance sampling.
+
+## Question 1: Simple Monte Carlo Integration
+
+**Objective:** Estimate  using samples from a  distribution.
+
+### Mathematical Background
+
+To estimate , we rewrite it as:
+
+
+where .
+
+### R Code
+
+```r
+# Parameters
+set.seed(123)
+n <- 10000
+a <- 0
+b <- 2
+
+# 1. Estimation
+u <- runif(n, min = a, max = b)
+h_u <- u^2 * exp(-u)
+theta_hat <- (b - a) * mean(h_u)
+
+# 2. Standard Error and 95% Confidence Interval
+mc_se <- (b - a) * (sd(h_u) / sqrt(n))
+ci <- theta_hat + c(-1, 1) * 1.96 * mc_se
+
+# 3. Accuracy Analysis
+exact_val <- integrate(function(x) x^2 * exp(-x), 0, 2)$value
+error <- abs(theta_hat - exact_val)
+
+cat("Q1 Results:\n")
+cat("Estimate:", theta_hat, "\nExact:", exact_val, "\n95% CI: [", ci[1], ",", ci[2], "]\n")
+
+```
+
+**Commentary:** As  increases, the Monte Carlo standard error decreases at a rate of , leading to a more stable and accurate estimate that converges to the analytical value.
+
+---
+
+## Question 2: Exponential Lifetime Simulation
+
+**Objective:** Estimate  for .
+
+### R Code
+
+```r
+set.seed(123)
+lambda <- 0.4
+sample_sizes <- c(1000, 5000, 10000)
+
+# Theoretical Probability
+theoretical <- pexp(5, rate = lambda) - pexp(2, rate = lambda)
+
+cat("Q2 Results:\n")
+for (n in sample_sizes) {
+  t_samples <- rexp(n, rate = lambda)
+  # Indicator function: 1 if condition met, 0 otherwise
+  prob_hat <- mean(t_samples > 2 & t_samples < 5)
+  cat("n =", n, "| Estimate:", prob_hat, "| Error:", abs(prob_hat - theoretical), "\n")
+}
+
+```
+
+**Commentary:** The stability of the estimate improves with larger sample sizes. The Monte Carlo estimate aligns with the theoretical probability derived from the Cumulative Distribution Function (CDF).
+
+---
+
+## Question 3: Importance Sampling on Infinite Bounds
+
+**Objective:** Compare Naive Monte Carlo vs. Importance Sampling for .
+
+### R Code
+
+```r
+n <- 10000
+set.seed(123)
+
+# 1. Naive Monte Carlo (Uniform on large M)
+M <- 20 # Approximation of infinity
+u_samples <- runif(n, 0, M)
+theta_naive <- M * mean(u_samples * exp(-u_samples))
+var_naive <- var(M * u_samples * exp(-u_samples))
+
+# 2. Importance Sampling (Exponential(1) proposal)
+# Proposal g(x) = exp(-x). Target f(x) = x * exp(-x)
+# Weight w(x) = f(x)/g(x) = x
+x_samples <- rexp(n, rate = 1)
+theta_is <- mean(x_samples)
+var_is <- var(x_samples)
+
+cat("Q3 Results:\n")
+cat("Naive (M=20):", theta_naive, "| Var:", var_naive, "\n")
+cat("Importance Sampling:", theta_is, "| Var:", var_is, "\n")
+
+```
+
+**Commentary:** Importance sampling is more efficient because it focuses samples in regions where the integrand is large. The naive approach suffers because  wastes many samples in the "tail" where the function value is nearly zero.
+
+---
+
+## Question 4: Rare Event Simulation
+
+**Objective:** Estimate  for .
+
+### R Code
+
+```r
+n <- 100000
+set.seed(123)
+
+# 1. Naive Monte Carlo
+x_naive <- rnorm(n)
+prob_naive <- mean(x_naive > 4)
+
+# 2. Importance Sampling (Shifted Normal N(4, 1))
+# We shift the mean to 4 so that ~50% of samples fall in the rare region
+y_samples <- rnorm(n, mean = 4, sd = 1)
+# Weight = Likelihood Ratio = f(y)/g(y)
+weights <- dnorm(y_samples, 0, 1) / dnorm(y_samples, 4, 1)
+prob_is <- mean((y_samples > 4) * weights)
+
+cat("Q4 Results:\n")
+cat("Naive Estimate:", prob_naive, "\n")
+cat("IS Estimate:", prob_is, "\n")
+cat("True Value:", pnorm(4, lower.tail = FALSE), "\n")
+
+```
+
+**Commentary:** In rare event simulation, naive Monte Carlo is often biased toward zero because the event may not occur at all in a limited sample. Importance sampling is preferable because it forces the rare event to happen frequently and then corrects the bias using weights, significantly reducing variance.
+
+---
+
+Would you like me to explain how to interpret the Variance and Efficiency results specifically for Question 3?
+
