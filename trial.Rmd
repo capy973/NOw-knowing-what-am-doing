@@ -1,0 +1,282 @@
+---
+title: "fine"
+author: "Caleb"
+date: "2026-02-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(123)
+```
+
+
+# # Introduction
+
+This report presents Monte Carlo simulation techniques applied to four problems involving numerical integration, probability estimation, and rare-event simulation. Each section includes:
+
+* Theoretical background
+* Correct R implementation
+* Simulation results
+* Plots and visual illustrations
+* Academic-style explanations
+
+Monte Carlo methods provide powerful numerical tools when analytic solutions are difficult, and importance sampling improves efficiency when estimating rare events.
+
+---
+
+## **Question 1: Monte Carlo Integration of ∫₀² x²e⁻ˣ dx**
+
+We estimate the integral:
+
+[
+\theta = \int_0^2 x^2 e^{-x} dx
+]
+
+using simple Monte Carlo integration with samples from **Uniform(0,2)**.
+
+Monte Carlo estimates the integral via:
+
+[
+\hat{\theta} = (b - a),\frac{1}{m}\sum_{i=1}^m g(X_i)
+]
+
+where (X_i \sim U(0,2)).
+
+---
+
+## Code and Results
+
+```{r}
+
+set.seed(5000)
+m = 10000
+a = 0; b = 2
+
+gx_fun = function(x) x^2 * exp(-x)
+
+x = runif(m, a, b)
+gx = gx_fun(x)
+
+theta_hat = (b - a) * mean(gx)
+
+sigma_hat = (b - a) * sd(gx)
+se = sigma_hat / sqrt(m)
+
+z_critical = qnorm(0.975)
+lower = theta_hat - z_critical * se
+upper = theta_hat + z_critical * se
+
+exact_val = (-(exp(-2)*(2^2 + 2*2 + 2))) - (-(exp(0)*(0^2 + 2*0 + 2)))
+
+cat("MC Estimate:", theta_hat, "\n")
+cat("Standard Error:", se, "\n")
+cat("95% CI: [", lower, ",", upper, "]\n")
+cat("Exact Value:", exact_val, "\n")
+```
+
+---
+
+## Plot of Integrand With Shaded Region
+
+```{r}
+curve(gx_fun, from = 0, to = 3, main = "Integrand for Question 1",
+      ylab = "g(x)", xlab = "x", lwd = 2, col = "blue")
+
+x_vector <- seq(0, 2, length = 100)
+y_vector <- gx_fun(x_vector)
+polygon(c(0, x_vector, 2), c(0, y_vector, 0), col = rgb(0, 0, 1, 0.2))
+```
+
+---
+
+## Academic Explanation
+
+The Monte Carlo estimator closely approximates the exact integral value. The 95% confidence interval contains the true result, indicating statistical reliability. As the sample size increases, variance decreases and the estimate converges, consistent with the Law of Large Numbers.
+
+---
+
+## **Question 2: Probability for an Exponential Distribution**
+
+Given:
+
+[
+T \sim \text{Exponential}(\lambda = 0.4)
+]
+
+we estimate:
+
+[
+P(2 < T < 5)
+]
+
+The exact probability is:
+
+[
+P(2 < T < 5) = F(5) - F(2)
+]
+
+where (F(t)) is the exponential CDF.
+
+---
+
+## Code and Results
+
+```{r}
+set.seed(8000)
+lambda = 0.4
+sizes = c(1000, 50000, 1000000)
+
+theoretical_p = (1 - exp(-lambda * 5)) - (1 - exp(-lambda * 2))
+
+results = sapply(sizes, function(n) {
+  u = runif(n)
+  t_samples = - (1/lambda) * log(1 - u)
+  mean(t_samples > 2 & t_samples < 5)
+})
+
+names(results) = paste0("n=", sizes)
+
+print(results)
+cat("Theoretical Probability:", theoretical_p, "\n")
+```
+
+---
+
+## Histogram With Theoretical Curve
+
+```{r}
+t_final = - (1/lambda) * log(1 - runif(10000))
+hist(t_final, breaks = 50, probability = TRUE, main = "Stability of Exp(0.4)")
+curve(dexp(x, rate = lambda), add = TRUE, col = "red", lwd = 2)
+abline(v = c(2, 5), col = "darkgreen", lwd = 2, lty = 2)
+```
+
+---
+
+## Academic Explanation
+
+The simulation results converge toward the theoretical probability as sample size increases. This demonstrates the consistency of Monte Carlo estimators. The histogram overlays the theoretical exponential density, validating the correctness of the inverse-transform sampling method.
+
+---
+
+## **Question 3: Estimating ∫₀∞ e⁻ˣ dx Using Two Methods**
+
+We estimate:
+
+[
+\theta = \int_0^\infty e^{-x} dx = 1
+]
+
+## Methods:
+
+1. **Naive Monte Carlo** using Uniform(0,15)
+2. **Importance Sampling** using Exp(1)
+
+Correct integrand: **exp(-x)**
+Correct IS weight: **1** (because target = proposal)
+
+---
+
+## Code and Results
+
+```{r}
+set.seed(8204)
+m = 10000
+
+M = 15
+u_samples = runif(m, 0, M)
+theta_naive = M * mean(exp(-u_samples))
+
+x_exp = rexp(m, 1)
+theta_is = mean(rep(1, m))
+
+var_naive = var(M * exp(-u_samples)) / m
+var_is = 0
+
+cat("Naive MC:", theta_naive, " (Var:", var_naive, ")\n")
+cat("Importance Sampling:", theta_is, " (Var:", var_is, ")\n")
+```
+
+---
+
+ ## Plot: Target vs Proposal
+
+```{r}
+curve(exp(-x), from = 0, to = 10, col = "black", lwd = 2,
+      main = "Target exp(-x) vs Proposal Exp(1)", ylab = "Density")
+curve(dexp(x, 1), add = TRUE, col = "red", lwd = 2, lty = 2)
+legend("topright", legend = c("Target exp(-x)", "Proposal Exp(1)"),
+       col = c("black", "red"), lty = 1:2)
+```
+
+---
+
+ ## Academic Explanation
+
+Importance sampling yields zero variance because the proposal matches the target distribution exactly. The naive estimator has higher variance because it spreads samples uniformly across a large interval where the integrand is nearly zero. This demonstrates why choosing a good proposal distribution dramatically improves efficiency.
+
+---
+
+## **Question 4: Rare Event Probability P(X > 4)**
+
+We estimate the rare probability:
+
+[
+P(X > 4), \quad X \sim N(0,1)
+]
+
+A naive Monte Carlo approach fails because the event is extremely rare.
+
+Importance sampling shifts the sampling distribution toward the rare-event region.
+
+---
+
+## Code and Results
+
+```{r}
+set.seed(8204)
+m = 100000
+
+samples_naive = rnorm(m, 0, 1)
+prob_naive = mean(samples_naive > 4)
+
+cat("Naive MC Estimate (100k samples):", prob_naive, "\n")
+
+y = rnorm(m, mean = 4, sd = 1)
+weights = dnorm(y, 0, 1) / dnorm(y, 4, 1)
+prob_is = mean(weights * (y > 4))
+
+cat("Importance Sampling Estimate:", prob_is, "\n")
+cat("Theoretical Value:", pnorm(4, lower.tail = FALSE), "\n")
+
+var_naive = var(samples_naive > 4) / m
+var_is = var(weights * (y > 4)) / m
+
+cat("Variance (Naive):", var_naive, "\n")
+cat("Variance (IS):", var_is, "\n")
+```
+
+---
+
+ ## Academic Explanation
+
+The naive probability estimate is unstable because too few samples exceed 4. Importance sampling dramatically reduces variance by drawing samples from a shifted normal distribution centered at the rare event region. This confirms importance sampling as a crucial tool for rare-event simulation.
+
+---
+
+## **Conclusion**
+
+Across all four problems:
+
+* Monte Carlo estimators converge as sample size increases.
+* Importance sampling significantly reduces variance when the proposal resembles the integrand or rare-event region.
+* Analytical results fall within constructed confidence intervals where appropriate.
+
+These simulations illustrate the power and flexibility of Monte Carlo techniques in applied probability and numerical integration.
+
+```
+
+---
+
+

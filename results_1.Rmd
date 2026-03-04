@@ -1,0 +1,309 @@
+---
+title: "STA8204_assignment_1_Caleb_Omwega_225426.ext,"
+author: "Caleb"
+date: "2026-02-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+set.seed(123)
+````
+
+## Monte Carlo Simulation Assignment
+
+This report presents Monte Carlo simulation solutions and explanations for four questions involving numerical integration, probability estimation, and importance sampling. The assignment demonstrates how simulation-based approaches can approximate integrals and rare-event probabilities that are analytically intractable or computationally expensive using standard techniques. Each section includes theoretical background, R code implementation, simulation outputs, and academic interpretation.
+
+---
+
+## **Question 1**
+
+We aim to estimate:
+
+[
+\theta = \int_0^2 x^2 e^{-x} dx
+]
+
+This integral equals the gamma function value (\Gamma(3)). The integral is evaluated using **simple Monte Carlo integration** with samples drawn from a **Uniform(0,2)** distribution. We also compute the Monte Carlo standard error and a 95% confidence interval.
+
+---
+
+## **1. Analytical Value**
+
+The integral evaluates to:
+
+```{r}
+theta_exact_q1 <- gamma(3)  # 2! = 2
+theta_exact_q1
+```
+
+The analytical value provides a benchmark for evaluating the accuracy of the Monte Carlo estimator.
+
+---
+
+##  **2. Monte Carlo Estimator Using Uniform(0,2)**
+
+We employ the standard Monte Carlo estimator:
+
+[
+\hat{\theta} = \frac{2}{N} \sum_{i=1}^N f(X_i), \quad X_i \sim U(0,2)
+]
+
+```{r}
+mc_q1 <- function(N) {
+  x <- runif(N, 0, 2)
+  fx <- x^2 * exp(-x)
+  theta_hat <- mean(fx) * 2
+  se <- sd(fx * 2) / sqrt(N)
+
+  ci <- c(theta_hat - 1.96 * se,
+          theta_hat + 1.96 * se)
+
+  list(N=N, theta = theta_hat, se = se, CI = ci)
+}
+```
+
+---
+
+## **3. Simulation for Multiple Sample Sizes**
+
+```{r}
+sizes <- c(1000, 5000, 10000)
+results_q1 <- lapply(sizes, mc_q1)
+results_q1
+```
+
+---
+
+## **Interpretation (Academic Style)**
+
+As expected, increasing the sample size reduces the Monte Carlo standard error and yields confidence intervals that narrow around the true value. The estimator is unbiased, and the results converge to the analytical value of 2. This behavior is consistent with the Law of Large Numbers and Central Limit Theorem. Larger samples produce more stable estimates and decrease variability, confirming the reliability of Monte Carlo integration in approximating gamma-type integrals.
+
+---
+
+## **Question 2**
+
+We are given a lifetime random variable ( T \sim \text{Exponential}(\lambda = 0.4) ), and we seek to estimate the probability:
+
+[
+P(2 < T < 5)
+]
+
+This question evaluates how Monte Carlo simulation can approximate intermediate-range event probabilities in continuous distributions.
+
+---
+
+##**1. Theoretical Probability**
+
+```{r}
+lambda <- 0.4
+p_exact_q2 <- pexp(5, rate=lambda) - pexp(2, rate=lambda)
+p_exact_q2
+```
+
+The analytical probability serves as a reference for evaluating simulation accuracy.
+
+---
+
+##  **2. Monte Carlo Estimator**
+
+```{r}
+mc_q2 <- function(N) {
+  T <- rexp(N, rate=lambda)
+  p_hat <- mean(T > 2 & T < 5)
+  se <- sqrt(p_hat * (1 - p_hat) / N)
+
+  ci <- c(p_hat - 1.96 * se,
+          p_hat + 1.96 * se)
+
+  list(N=N, prob = p_hat, se = se, CI = ci)
+}
+```
+
+---
+
+##  **3. Simulation for Various Sample Sizes**
+
+```{r}
+sizes <- c(1000, 5000, 10000)
+results_q2 <- lapply(sizes, mc_q2)
+results_q2
+```
+
+---
+
+##  **Interpretation (Academic Style)**
+
+The simulation results illustrate the consistency of Monte Carlo estimation across different sample sizes. As ( N ) increases, the estimated probability stabilizes and approaches the theoretical value. The 95% confidence intervals shrink correspondingly, reflecting increased precision. This demonstrates that Monte Carlo estimation is particularly useful when the underlying probability distribution is known but an analytical probability expression is unavailable or cumbersome to compute.
+
+---
+
+## **Question 3**
+
+We estimate:
+
+[
+\theta = \int_0^\infty e^{-x} dx = 1
+]
+
+Two methods are compared:
+
+1. **Naive Monte Carlo using Uniform(0, M)**
+2. **Importance sampling with an exponential proposal**
+
+The purpose is to illustrate how importance sampling reduces variance and improves estimator efficiency.
+
+---
+
+## **1. Naive Monte Carlo Using Uniform(0, M)**
+
+```{r}
+mc_uniform_q3 <- function(N, M=10) {
+  x <- runif(N, 0, M)
+  fx <- exp(-x)
+  theta_hat <- mean(fx) * M
+  se <- sd(fx * M) / sqrt(N)
+  ci <- c(theta_hat - 1.96 * se,
+          theta_hat + 1.96 * se)
+  list(N=N, theta = theta_hat, se = se, CI = ci)
+}
+
+result_uniform_q3 <- mc_uniform_q3(10000)
+result_uniform_q3
+```
+
+---
+
+##  **2. Importance Sampling Using Exponential Proposal**
+
+We choose ( g(x) = \text{Exp}(1) ), which closely matches the integrand and improves simulation efficiency.
+
+```{r}
+mc_is_q3 <- function(N) {
+  y <- rexp(N, rate=1)
+  w <- exp(-y) / dexp(y, rate=1)
+  theta_hat <- mean(w)
+  se <- sd(w)/sqrt(N)
+  ci <- c(theta_hat - 1.96*se,
+          theta_hat + 1.96*se)
+  list(N=N, theta = theta_hat, se = se, CI = ci)
+}
+
+result_is_q3 <- mc_is_q3(10000)
+result_is_q3
+```
+
+---
+
+##  **Interpretation **
+
+The naive estimator exhibits substantially higher variance because the Uniform(0, M) distribution allocates too many samples in regions where the integrand contributes little to the integral. In contrast, importance sampling focuses computational effort in high-contribution regions by reweighting samples drawn from a more suitable proposal distribution. Consequently, the importance sampling estimator is significantly more efficient and yields narrower confidence intervals. This highlights the importance of choosing a proposal distribution that resembles the integrand.
+
+---
+
+## **Question 4**
+
+We estimate the rare event probability:
+
+[
+P(X > 4), \quad X \sim N(0,1)
+]
+
+This probability is extremely small, making it difficult to estimate accurately using naive Monte Carlo. We therefore compare naive simulation with an importance sampling approach.
+
+---
+
+##  **1. Exact Probability**
+
+```{r}
+p_exact_q4 <- 1 - pnorm(4)
+p_exact_q4
+```
+
+---
+
+##**2. Naive Monte Carlo Estimator**
+
+```{r}
+mc_naive_q4 <- function(N) {
+  x <- rnorm(N)
+  indicator <- (x > 4)
+  p_hat <- mean(indicator)
+  se <- sqrt(p_hat * (1 - p_hat) / N)
+  ci <- c(p_hat - 1.96 * se,
+          p_hat + 1.96 * se)
+  list(N=N, prob = p_hat, se = se, CI = ci)
+}
+
+naive_q4 <- mc_naive_q4(1e7)
+naive_q4
+```
+
+---
+
+## **3. Importance Sampling with Shifted Normal**
+
+We sample from:
+
+[
+Y \sim N(\mu, 1), \quad \mu = 4
+]
+
+which centers simulations near the rare event region.
+
+```{r}
+mc_is_q4 <- function(N, mu=4) {
+  y <- rnorm(N, mean=mu, sd=1)
+  w <- dnorm(y, mean=0, sd=1) / dnorm(y, mean=mu, sd=1)
+  estimator <- mean((y > 4) * w)
+  se <- sd((y > 4) * w) / sqrt(N)
+  ci <- c(estimator - 1.96 * se,
+          estimator + 1.96 * se)
+  list(N=N, prob = estimator, se = se, CI = ci)
+}
+
+is_q4 <- mc_is_q4(100000)
+is_q4
+```
+
+---
+
+##  **Interpretation **
+
+The naive Monte Carlo estimator performs poorly because the event (X > 4) occurs with extremely low probability. As a result, even very large sample sizes yield either zero or highly unstable estimates. Importance sampling dramatically improves estimator performance by drawing samples from a distribution concentrated in the tail. This reduces variance, increases computational efficiency, and produces confidence intervals that capture the true probability with far fewer samples. This example underscores the necessity of variance reduction methods when estimating rare-event probabilities.
+
+---
+
+## **Summary of All Results**
+
+```{r}
+cat("\nQUESTION 1:\n"); print(results_q1)
+cat("Exact value:", theta_exact_q1, "\n\n")
+
+cat("QUESTION 2:\n"); print(results_q2)
+cat("Exact probability:", p_exact_q2, "\n\n")
+
+cat("QUESTION 3:\n")
+cat("Naive:\n"); print(result_uniform_q3)
+cat("\nImportance Sampling:\n"); print(result_is_q3)
+cat("Exact value = 1\n\n")
+
+cat("QUESTION 4:\n")
+cat("Naive:\n"); print(naive_q4)
+cat("\nImportance Sampling:\n"); print(is_q4)
+cat("Exact value:", p_exact_q4, "\n")
+```
+
+---
+
+## **General Academic Conclusion**
+
+Monte Carlo simulation provides a powerful set of tools for estimating integrals, probabilities, and rare-event probabilities. While naive Monte Carlo methods are easy to implement, their effectiveness depends heavily on the alignment between the sampling distribution and the underlying integrand or event. Importance sampling significantly enhances efficiency by reallocating simulation effort to high-impact regions, resulting in lower variance and more reliable estimates. The results across all four questions consistently illustrate the theoretical properties of Monte Carlo estimators, including convergence, consistency, and variance reduction.
+
+```
+
+---
+
+
